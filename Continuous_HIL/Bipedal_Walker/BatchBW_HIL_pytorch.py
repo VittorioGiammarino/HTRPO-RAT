@@ -211,7 +211,7 @@ class SoftmaxHierarchicalActor:
         def Alpha(self):
             alpha = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('alpha iter', t+1, '/', len(self.TrainingSet))
+                # print('alpha iter', t+1, '/', len(self.TrainingSet))
                 if t ==0:
                     state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                     action = self.Labels[t]
@@ -233,7 +233,7 @@ class SoftmaxHierarchicalActor:
         
             for t_raw in range(len(self.TrainingSet)):
                 t = len(self.TrainingSet) - (t_raw+1)
-                print('beta iter', t_raw+1, '/', len(self.TrainingSet))
+                # print('beta iter', t_raw+1, '/', len(self.TrainingSet))
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 beta[:,:,t] = SoftmaxHierarchicalActor.BatchBW.BackwardRecursion(beta[:,:,t+1], action, self.pi_hi, 
@@ -276,7 +276,7 @@ class SoftmaxHierarchicalActor:
         def Gamma(self, alpha, beta):
             gamma = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('gamma iter', t+1, '/', len(self.TrainingSet))
+                # print('gamma iter', t+1, '/', len(self.TrainingSet))
                 gamma[:,:,t]=SoftmaxHierarchicalActor.BatchBW.Smoothing(self.option_dim, self.termination_dim, alpha[:,:,t], beta[:,:,t])
             
             return gamma
@@ -284,7 +284,7 @@ class SoftmaxHierarchicalActor:
         def GammaTilde(self, alpha, beta):
             gamma_tilde = np.zeros((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(1,len(self.TrainingSet)):
-                print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
+                # print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 gamma_tilde[:,:,t]=SoftmaxHierarchicalActor.BatchBW.DoubleSmoothing(beta[:,:,t], alpha[:,:,t-1], action, 
@@ -363,7 +363,7 @@ class SoftmaxHierarchicalActor:
             n_batches = np.int(self.TrainingSet.shape[0]/self.batch_size)
                     
             for n in range(n_batches):
-                print("\n Batch %d" % (n+1,))
+                # print("\n Batch %d" % (n+1,))
                 TrainingSet = torch.FloatTensor(self.TrainingSet[n*self.batch_size:(n+1)*self.batch_size,:]).to(device)
                 loss = SoftmaxHierarchicalActor.BatchBW.Loss(gamma_tilde_reshaped[n*self.batch_size:(n+1)*self.batch_size,:,:], 
                                                              gamma_reshaped_options[n*self.batch_size:(n+1)*self.batch_size,:], 
@@ -380,7 +380,7 @@ class SoftmaxHierarchicalActor:
                     self.pi_lo_optimizer[option].step()
                     self.pi_b_optimizer[option].step()
                 self.pi_hi_optimizer.step()
-                print('loss:', float(loss))
+                # print('loss:', float(loss))
         
             return loss   
         
@@ -405,45 +405,40 @@ class SoftmaxHierarchicalActor:
             
             return likelihood
                 
-        def Baum_Welch(self, N, likelihood_online=1):
+        def Baum_Welch(self, likelihood_online=1):
     # =============================================================================
     #         batch BW for HIL
     # =============================================================================
             
             T = self.TrainingSet.shape[0]
-            likelihood = []
             time_init = time.time()
             Time_list = [0]
                 
-            for n in range(N):
-                print('iter Loss', n+1, '/', N)
-            
-                alpha = SoftmaxHierarchicalActor.BatchBW.Alpha(self)
-                beta = SoftmaxHierarchicalActor.BatchBW.Beta(self)
-                gamma = SoftmaxHierarchicalActor.BatchBW.Gamma(self, alpha, beta)
-                gamma_tilde = SoftmaxHierarchicalActor.BatchBW.GammaTilde(self, alpha, beta)
-            
-                print('Expectation done')
-                print('Starting maximization step')
-                
-                gamma_tilde_reshaped = SoftmaxHierarchicalActor.BatchBW.GammaTildeReshape(gamma_tilde, self.option_dim)
-                gamma_actions = SoftmaxHierarchicalActor.BatchBW.GammaReshapeActions(T, self.option_dim, self.action_space_discrete, gamma, self.Labels)
-                gamma_reshaped_options = SoftmaxHierarchicalActor.BatchBW.GammaReshapeOptions(gamma)
-                m,n,o = gamma_actions.shape
-                auxiliary_vector = np.zeros((m,n))
-                for l in range(m):
-                    for k in range(n):
-                        if gamma_actions[l,k,0]!=0:
-                            auxiliary_vector[l,k] = 1
+            alpha = SoftmaxHierarchicalActor.BatchBW.Alpha(self)
+            beta = SoftmaxHierarchicalActor.BatchBW.Beta(self)
+            gamma = SoftmaxHierarchicalActor.BatchBW.Gamma(self, alpha, beta)
+            gamma_tilde = SoftmaxHierarchicalActor.BatchBW.GammaTilde(self, alpha, beta)
         
-    
-                loss = SoftmaxHierarchicalActor.BatchBW.OptimizeLossBatch(self, gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions, auxiliary_vector)
-                Time_list.append(time.time() - time_init)      
-             
-            likelihood = np.append(likelihood, SoftmaxHierarchicalActor.BatchBW.likelihood_approximation(self))  
-            print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
-    
+            print('Expectation done')
+            print('Starting maximization step')
             
+            gamma_tilde_reshaped = SoftmaxHierarchicalActor.BatchBW.GammaTildeReshape(gamma_tilde, self.option_dim)
+            gamma_actions = SoftmaxHierarchicalActor.BatchBW.GammaReshapeActions(T, self.option_dim, self.action_space_discrete, gamma, self.Labels)
+            gamma_reshaped_options = SoftmaxHierarchicalActor.BatchBW.GammaReshapeOptions(gamma)
+            m,n,o = gamma_actions.shape
+            auxiliary_vector = np.zeros((m,n))
+            for l in range(m):
+                for k in range(n):
+                    if gamma_actions[l,k,0]!=0:
+                        auxiliary_vector[l,k] = 1
+    
+
+            loss = SoftmaxHierarchicalActor.BatchBW.OptimizeLossBatch(self, gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions, auxiliary_vector)
+            Time_list.append(time.time() - time_init)      
+             
+            likelihood = SoftmaxHierarchicalActor.BatchBW.likelihood_approximation(self)
+            print('Maximization done, Likelihood:', float(likelihood)) #float(loss_options+loss_action+loss_termination))
+     
             return self.pi_hi, self.pi_lo, self.pi_b, likelihood, Time_list 
         
         def HierarchicalStochasticSampleTrajMDP(self, env, max_epoch_per_traj, number_of_trajectories):
@@ -567,21 +562,23 @@ class SoftmaxHierarchicalActor:
 class GaussianHierarchicalActor:
     class NN_PI_LO(nn.Module):
         def __init__(self, state_dim, action_dim):
-            super(SoftmaxHierarchicalActor.NN_PI_LO, self).__init__()
+            super(GaussianHierarchicalActor.NN_PI_LO, self).__init__()
             
-            self.l1 = nn.Linear(state_dim, 128)
-            nn.init.uniform_(self.l1.weight, -0.5, 0.5)
-            self.l2 = nn.Linear(128,action_dim)
-            nn.init.uniform_(self.l2.weight, -0.5, 0.5)
-            self.lS = nn.Softmax(dim=1)
+            self.l1 = nn.Linear(state_dim, 256)
+            self.l2 = nn.Linear(256, 256)
+            self.l3 = nn.Linear(256, 2*action_dim)
             
         def forward(self, state):
             a = F.relu(self.l1(state))
-            return self.lS(self.l2(a))
+            a = F.relu(self.l2(a))
+            a = self.l3(a)
+            mean = a[:,0:self.action_dim]
+            std = torch.exp(a[:, self.action_dim:])
+            return torch.normal(mean,std)
         
     class NN_PI_B(nn.Module):
         def __init__(self, state_dim, termination_dim):
-            super(SoftmaxHierarchicalActor.NN_PI_B, self).__init__()
+            super(GaussianHierarchicalActor.NN_PI_B, self).__init__()
             
             self.l1 = nn.Linear(state_dim,10)
             nn.init.uniform_(self.l1.weight, -0.5, 0.5)
@@ -595,7 +592,7 @@ class GaussianHierarchicalActor:
         
     class NN_PI_HI(nn.Module):
         def __init__(self, state_dim, option_dim):
-            super(SoftmaxHierarchicalActor.NN_PI_HI, self).__init__()
+            super(GaussianHierarchicalActor.NN_PI_HI, self).__init__()
             
             self.l1 = nn.Linear(state_dim,5)
             nn.init.uniform_(self.l1.weight, -0.5, 0.5)
@@ -614,22 +611,15 @@ class GaussianHierarchicalActor:
             self.option_dim = option_dim
             self.termination_dim = termination_dim
             self.TrainingSet = state_samples
+            self.Labels = action_samples
             self.batch_size = batch_size
-            self.mu = np.ones(option_dim)*np.divide(1,option_dim)
-            self.action_space_discrete = len(np.unique(action_samples,axis=0))
-            self.action_dictionary = np.unique(action_samples, axis = 0)
-            labels = np.zeros((len(action_samples)))
-            for i in range(len(action_samples)):
-                for j in range(self.action_space_discrete):
-                    if np.sum(action_samples[i,:] == self.action_dictionary[j,:]) == self.action_dim:
-                        labels[i] = j     
-            self.Labels = labels  
+            self.mu = np.ones(option_dim)*np.divide(1,option_dim) 
             # define hierarchical policy
-            self.pi_hi = SoftmaxHierarchicalActor.NN_PI_HI(state_dim, option_dim).to(device)
+            self.pi_hi = GaussianHierarchicalActor.NN_PI_HI(state_dim, option_dim).to(device)
             self.pi_b = [[None]*1 for _ in range(option_dim)] 
             self.pi_lo = [[None]*1 for _ in range(option_dim)] 
-            pi_lo_temp = SoftmaxHierarchicalActor.NN_PI_LO(state_dim, self.action_space_discrete).to(device)
-            pi_b_temp = SoftmaxHierarchicalActor.NN_PI_B(state_dim, termination_dim).to(device)
+            pi_lo_temp = GaussianHierarchicalActor.NN_PI_LO(state_dim, action_dim).to(device)
+            pi_b_temp = GaussianHierarchicalActor.NN_PI_B(state_dim, termination_dim).to(device)
             for option in range(self.option_dim):
                 self.pi_lo[option] = copy.deepcopy(pi_lo_temp)
                 self.pi_b[option] = copy.deepcopy(pi_b_temp)
@@ -754,7 +744,7 @@ class GaussianHierarchicalActor:
         def Alpha(self):
             alpha = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('alpha iter', t+1, '/', len(self.TrainingSet))
+                # print('alpha iter', t+1, '/', len(self.TrainingSet))
                 if t ==0:
                     state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                     action = self.Labels[t]
@@ -776,7 +766,7 @@ class GaussianHierarchicalActor:
         
             for t_raw in range(len(self.TrainingSet)):
                 t = len(self.TrainingSet) - (t_raw+1)
-                print('beta iter', t_raw+1, '/', len(self.TrainingSet))
+                # print('beta iter', t_raw+1, '/', len(self.TrainingSet))
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 beta[:,:,t] = SoftmaxHierarchicalActor.BatchBW.BackwardRecursion(beta[:,:,t+1], action, self.pi_hi, 
@@ -819,7 +809,7 @@ class GaussianHierarchicalActor:
         def Gamma(self, alpha, beta):
             gamma = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('gamma iter', t+1, '/', len(self.TrainingSet))
+                # print('gamma iter', t+1, '/', len(self.TrainingSet))
                 gamma[:,:,t]=SoftmaxHierarchicalActor.BatchBW.Smoothing(self.option_dim, self.termination_dim, alpha[:,:,t], beta[:,:,t])
             
             return gamma
@@ -827,7 +817,7 @@ class GaussianHierarchicalActor:
         def GammaTilde(self, alpha, beta):
             gamma_tilde = np.zeros((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(1,len(self.TrainingSet)):
-                print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
+                # print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 gamma_tilde[:,:,t]=SoftmaxHierarchicalActor.BatchBW.DoubleSmoothing(beta[:,:,t], alpha[:,:,t-1], action, 
@@ -906,7 +896,7 @@ class GaussianHierarchicalActor:
             n_batches = np.int(self.TrainingSet.shape[0]/self.batch_size)
                     
             for n in range(n_batches):
-                print("\n Batch %d" % (n+1,))
+                # print("\n Batch %d" % (n+1,))
                 TrainingSet = torch.FloatTensor(self.TrainingSet[n*self.batch_size:(n+1)*self.batch_size,:]).to(device)
                 loss = SoftmaxHierarchicalActor.BatchBW.Loss(gamma_tilde_reshaped[n*self.batch_size:(n+1)*self.batch_size,:,:], 
                                                              gamma_reshaped_options[n*self.batch_size:(n+1)*self.batch_size,:], 
@@ -923,7 +913,7 @@ class GaussianHierarchicalActor:
                     self.pi_lo_optimizer[option].step()
                     self.pi_b_optimizer[option].step()
                 self.pi_hi_optimizer.step()
-                print('loss:', float(loss))
+                # print('loss:', float(loss))
         
             return loss   
         
@@ -948,7 +938,7 @@ class GaussianHierarchicalActor:
             
             return likelihood
                 
-        def Baum_Welch(self, N, likelihood_online=1):
+        def Baum_Welch(self, likelihood_online=1):
     # =============================================================================
     #         batch BW for HIL
     # =============================================================================
@@ -957,36 +947,31 @@ class GaussianHierarchicalActor:
             likelihood = []
             time_init = time.time()
             Time_list = [0]
-                
-            for n in range(N):
-                print('iter Loss', n+1, '/', N)
-            
-                alpha = SoftmaxHierarchicalActor.BatchBW.Alpha(self)
-                beta = SoftmaxHierarchicalActor.BatchBW.Beta(self)
-                gamma = SoftmaxHierarchicalActor.BatchBW.Gamma(self, alpha, beta)
-                gamma_tilde = SoftmaxHierarchicalActor.BatchBW.GammaTilde(self, alpha, beta)
-            
-                print('Expectation done')
-                print('Starting maximization step')
-                
-                gamma_tilde_reshaped = SoftmaxHierarchicalActor.BatchBW.GammaTildeReshape(gamma_tilde, self.option_dim)
-                gamma_actions = SoftmaxHierarchicalActor.BatchBW.GammaReshapeActions(T, self.option_dim, self.action_space_discrete, gamma, self.Labels)
-                gamma_reshaped_options = SoftmaxHierarchicalActor.BatchBW.GammaReshapeOptions(gamma)
-                m,n,o = gamma_actions.shape
-                auxiliary_vector = np.zeros((m,n))
-                for l in range(m):
-                    for k in range(n):
-                        if gamma_actions[l,k,0]!=0:
-                            auxiliary_vector[l,k] = 1
+                            
+            alpha = SoftmaxHierarchicalActor.BatchBW.Alpha(self)
+            beta = SoftmaxHierarchicalActor.BatchBW.Beta(self)
+            gamma = SoftmaxHierarchicalActor.BatchBW.Gamma(self, alpha, beta)
+            gamma_tilde = SoftmaxHierarchicalActor.BatchBW.GammaTilde(self, alpha, beta)
         
+            print('Expectation done')
+            print('Starting maximization step')
+            
+            gamma_tilde_reshaped = SoftmaxHierarchicalActor.BatchBW.GammaTildeReshape(gamma_tilde, self.option_dim)
+            gamma_actions = SoftmaxHierarchicalActor.BatchBW.GammaReshapeActions(T, self.option_dim, self.action_space_discrete, gamma, self.Labels)
+            gamma_reshaped_options = SoftmaxHierarchicalActor.BatchBW.GammaReshapeOptions(gamma)
+            m,n,o = gamma_actions.shape
+            auxiliary_vector = np.zeros((m,n))
+            for l in range(m):
+                for k in range(n):
+                    if gamma_actions[l,k,0]!=0:
+                        auxiliary_vector[l,k] = 1
     
-                loss = SoftmaxHierarchicalActor.BatchBW.OptimizeLossBatch(self, gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions, auxiliary_vector)
-                Time_list.append(time.time() - time_init)      
+            loss = SoftmaxHierarchicalActor.BatchBW.OptimizeLossBatch(self, gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions, auxiliary_vector)
+            Time_list.append(time.time() - time_init)      
              
             likelihood = np.append(likelihood, SoftmaxHierarchicalActor.BatchBW.likelihood_approximation(self))  
-            print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
-    
-            
+            print('Maximization done, Likelihood:',float(likelihood)) #float(loss_options+loss_action+loss_termination))
+                
             return self.pi_hi, self.pi_lo, self.pi_b, likelihood, Time_list 
         
     

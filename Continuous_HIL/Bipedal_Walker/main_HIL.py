@@ -225,17 +225,26 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0] 
 option_dim = args.number_options
 termination_dim = 2
-state_samples = TrainingSet
-action_samples = Labels
-batch_size = 33
-l_rate = 0.01
+state_samples = TrainingSet_tot[0:5000,:]
+action_samples = Labels_tot[0:5000]
+batch_size = 32
+l_rate = 0.001
 Agent_BatchHIL_pytorch = BatchBW_HIL_pytorch.SoftmaxHierarchicalActor.BatchBW(state_dim, action_dim, option_dim, termination_dim, state_samples, action_samples, batch_size, l_rate)
 N=20
-start_batch_time_torch = time.time()
-pi_hi_batch_torch, pi_lo_batch_troch, pi_b_batch_torch, likelihood_batch_torch, time_per_iteration_torch = Agent_BatchHIL_pytorch.Baum_Welch(N,1)
-end_batch_time_torch = time.time()
+eval_episodes = 10
+max_epoch = 2000
 
-
+for i in range(N):
+    print(f"Iteration {i+1}/{N}")
+    pi_hi_batch_torch, pi_lo_batch_torch, pi_b_batch_torch, likelihood_batch_torch, time_per_iteration_torch = Agent_BatchHIL_pytorch.Baum_Welch()
+    BatchSim_torch = World.Walker.Simulation(pi_hi_batch_torch, pi_lo_batch_torch, pi_b_batch_torch, action_samples)
+    [trajBatch_torch, controlBatch_torch, OptionsBatch_torch, 
+     TerminationBatch_torch, RewardBatch_torch] = BatchSim_torch.HierarchicalStochasticSampleTrajMDP_pytorch(max_epoch, eval_episodes)
+    avg_reward = np.sum(RewardBatch_torch)/eval_episodes
+    
+    print("---------------------------------------")
+    print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
+    print("---------------------------------------")
 
 
 

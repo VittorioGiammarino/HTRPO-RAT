@@ -205,7 +205,7 @@ class Walker:
             option_space = len(pi_lo)
             self.option_space = option_space
             self.mu = np.ones(option_space)*np.divide(1,option_space)
-            self.zeta = 0.0001
+            self.zeta = 0
             self.pi_hi = pi_hi
             self.pi_lo = pi_lo
             self.pi_b = pi_b  
@@ -279,7 +279,7 @@ class Walker:
                     u_tot = np.append(u_tot,u)
             
                     # given action, draw next state
-                    action = int(self.action_dictionary[u])
+                    action = self.action_dictionary[u,:]
                     obs, reward, done, _ = self.env.step(action)
                     obs = np.round(obs,3)
                     Reward = Reward + reward

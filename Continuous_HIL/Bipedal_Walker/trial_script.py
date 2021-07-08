@@ -26,16 +26,21 @@ class NN_PI_LO(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(NN_PI_LO, self).__init__()
         
-        self.l1 = nn.Linear(state_dim, 128)
-        self.l2 = nn.Linear(128,128)
-        self.l3 = nn.Linear(128, action_dim)
-        self.lS = nn.Softmax(dim=1)
+        self.action_dim = action_dim
+        self.l1 = nn.Linear(state_dim, 256)
+        nn.init.uniform_(self.l1.weight, -0.5, 0.5)
+        self.l2 = nn.Linear(256, 256)
+        nn.init.uniform_(self.l2.weight, -0.5, 0.5)
+        self.l3 = nn.Linear(256, 2*action_dim)
+        nn.init.uniform_(self.l2.weight, -0.5, 0.5)
         
     def forward(self, state):
         a = F.relu(self.l1(state))
         a = F.relu(self.l2(a))
-                
-        return self.lS(self.l3(a))
+        a = self.l3(a)
+        mean = a[:,0:self.action_dim]
+        std = torch.exp(a[:, self.action_dim:])
+        return torch.normal(mean,std)
     
 state_dim = 2
 action_dim = 4
@@ -48,5 +53,5 @@ for option in range(option_dim):
 
 state = np.array([[0, 1], [1, 1], [2, 2]])
 state = torch.FloatTensor(state.reshape(len(state), state_dim)).to(device)
-albi = NN_low[0](state).cpu() #.data.numpy()
+albi = NN_low[0](state).cpu().clamp(-1,1) #.data.numpy()
 
