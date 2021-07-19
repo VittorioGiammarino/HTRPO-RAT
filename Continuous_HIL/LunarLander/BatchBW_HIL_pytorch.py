@@ -212,7 +212,7 @@ class SoftmaxHierarchicalActor:
         def Alpha(self):
             alpha = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('alpha iter', t+1, '/', len(self.TrainingSet))
+                # print('alpha iter', t+1, '/', len(self.TrainingSet))
                 if t ==0:
                     state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                     action = self.Labels[t]
@@ -234,7 +234,7 @@ class SoftmaxHierarchicalActor:
         
             for t_raw in range(len(self.TrainingSet)):
                 t = len(self.TrainingSet) - (t_raw+1)
-                print('beta iter', t_raw+1, '/', len(self.TrainingSet))
+                # print('beta iter', t_raw+1, '/', len(self.TrainingSet))
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 beta[:,:,t] = SoftmaxHierarchicalActor.BatchBW.BackwardRecursion(beta[:,:,t+1], action, self.pi_hi, 
@@ -277,7 +277,7 @@ class SoftmaxHierarchicalActor:
         def Gamma(self, alpha, beta):
             gamma = np.empty((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(len(self.TrainingSet)):
-                print('gamma iter', t+1, '/', len(self.TrainingSet))
+                # print('gamma iter', t+1, '/', len(self.TrainingSet))
                 gamma[:,:,t]=SoftmaxHierarchicalActor.BatchBW.Smoothing(self.option_dim, self.termination_dim, alpha[:,:,t], beta[:,:,t])
             
             return gamma
@@ -285,7 +285,7 @@ class SoftmaxHierarchicalActor:
         def GammaTilde(self, alpha, beta):
             gamma_tilde = np.zeros((self.option_dim, self.termination_dim, len(self.TrainingSet)))
             for t in range(1,len(self.TrainingSet)):
-                print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
+                # print('gamma tilde iter', t, '/', len(self.TrainingSet)-1)
                 state = torch.FloatTensor(self.TrainingSet[t,:].reshape(1,self.state_dim)).to(device)
                 action = self.Labels[t]
                 gamma_tilde[:,:,t]=SoftmaxHierarchicalActor.BatchBW.DoubleSmoothing(beta[:,:,t], alpha[:,:,t-1], action, 
@@ -364,7 +364,7 @@ class SoftmaxHierarchicalActor:
             n_batches = np.int(self.TrainingSet.shape[0]/self.batch_size)
                     
             for n in range(n_batches):
-                print("\n Batch %d" % (n+1,))
+                # print("\n Batch %d" % (n+1,))
                 TrainingSet = torch.FloatTensor(self.TrainingSet[n*self.batch_size:(n+1)*self.batch_size,:]).to(device)
                 loss = SoftmaxHierarchicalActor.BatchBW.Loss(gamma_tilde_reshaped[n*self.batch_size:(n+1)*self.batch_size,:,:], 
                                                              gamma_reshaped_options[n*self.batch_size:(n+1)*self.batch_size,:], 
@@ -381,7 +381,7 @@ class SoftmaxHierarchicalActor:
                     self.pi_lo_optimizer[option].step()
                     self.pi_b_optimizer[option].step()
                 self.pi_hi_optimizer.step()
-                print('loss:', float(loss))
+                # print('loss:', float(loss))
         
             return loss   
         
@@ -412,7 +412,6 @@ class SoftmaxHierarchicalActor:
     # =============================================================================
             
             T = self.TrainingSet.shape[0]
-            likelihood = []
             time_init = time.time()
             Time_list = [0]
             
@@ -438,11 +437,11 @@ class SoftmaxHierarchicalActor:
             loss = SoftmaxHierarchicalActor.BatchBW.OptimizeLossBatch(self, gamma_tilde_reshaped, gamma_reshaped_options, gamma_actions, auxiliary_vector)
             Time_list.append(time.time() - time_init)      
              
-            likelihood = np.append(likelihood, SoftmaxHierarchicalActor.BatchBW.likelihood_approximation(self))  
+            # likelihood = SoftmaxHierarchicalActor.BatchBW.likelihood_approximation(self)
             print('Maximization done, Total Loss:',float(loss))#float(loss_options+loss_action+loss_termination))
     
             
-            return self.pi_hi, self.pi_lo, self.pi_b, likelihood, Time_list 
+            return self.pi_hi, self.pi_lo, self.pi_b
         
             
 
